@@ -12,12 +12,12 @@ defmodule CliChat.Application do
 
   @impl true
   def start(_type, _args) do
-    port = Application.get_env(:cli_chat, :port, 4001)
+    default_host = Application.get_env(:cli_chat, :host, 'localhost')
+    default_port = Application.get_env(:cli_chat, :port, 4000)
     children = [
       # Starts a worker by calling: CliChat.Worker.start_link(arg)
-      {CliChat.Server, [port]},
-      # {CliChat.TestServer, [port]},
-      {CliChat.Client, []}
+      {CliChat.Server, [default_host, default_port]},
+      {CliChat.Client, [default_host, default_port]}
     ]
 
     # See https://hexdocs.pm/elixir/Supervisor.html

@@ -2,16 +2,18 @@ defmodule CliChat.Server do
   use GenServer
 
   ## API
-  def start_link([port]) do
+
+  def start_link([host, port]) do
     IO.puts("Start server")
-    GenServer.start_link(__MODULE__, port, [])
+    GenServer.start_link(__MODULE__, {host, port}, [])
   end
 
   ## GenServer callbacks
+
   @impl true
-  def init(port) do
+  def init({_host, port}) do
     IO.puts("SERVER: init")
-    {:ok, listen_socket} = :gen_tcp.listen(port, [:binary, {:packet, 0}, {:active, true}, {:reuseaddr, true}])
+    {:ok, listen_socket} = :gen_tcp.listen(port, [:binary, {:active, true}])
 
     send(self(), :init)
     {:ok, %{listen_socket: listen_socket, clients: []}}
