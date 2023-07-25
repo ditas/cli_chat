@@ -35,7 +35,7 @@ defmodule CliChat.Client do
   end
 
   defp handle_command("connect", %{connected: false}) do
-    IO.puts("Connecting to server localhost:4000 ...")
+    IO.puts("Connecting to server localhost:4001 ...")
     {:ok, socket} = :gen_tcp.connect('localhost', 4001, [:binary, {:packet, 0}, {:active, false}, {:reuseaddr, true}])
     loop(%{connected: true, socket: socket})
   end
