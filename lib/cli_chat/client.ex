@@ -90,7 +90,7 @@ defmodule CliChat.Client do
   end
 
   defp connect(host, port, state) do
-    {:ok, socket} = :gen_tcp.connect(host, port, [:binary, {:active, false}])
+    {:ok, socket} = :gen_tcp.connect(String.to_charlist(host), String.to_integer(port), [:binary, {:active, false}])
 
     shell_pid = self()
     spawn(__MODULE__, :recv, [socket, shell_pid])
