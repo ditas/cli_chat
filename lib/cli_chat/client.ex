@@ -40,14 +40,20 @@ defmodule CliChat.Client do
 
   defp loop(%{connected: true, socket: _socket, name: nil} = state) do
     IO.puts("CLIENT pid: #{inspect(self())}. Set your name with command 'set_name': ")
-    case IO.gets("") |> String.trim() do
-      "exit" -> exit_chat(state)
-      command -> handle_command(command, state)
-    end
+    read_input(state)
+  end
+
+  defp loop(%{connected: true, socket: _socket, name: name} = state) do
+    IO.puts("CLIENT pid: #{inspect(self())}. "<> name <>": ")
+    read_input(state)
   end
 
   defp loop(state) do
     IO.puts("CLIENT pid: #{inspect(self())}. Enter a command: ")
+    read_input(state)
+  end
+
+  defp read_input(state) do
     case IO.gets("") |> String.trim() do
       "exit" -> exit_chat(state)
       command -> handle_command(command, state)

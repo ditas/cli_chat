@@ -25,7 +25,7 @@ defmodule CliChat.ServerHandler do
   end
 
   @impl true
-  def handle_info(:init, %{client: socket} = state) do
+  def handle_info(:init, %{client: _socket} = state) do
     GenServer.cast(:chat_server, {:info, "New client joined"})
     {:noreply, state}
   end
@@ -33,15 +33,6 @@ defmodule CliChat.ServerHandler do
   @impl true
   def handle_info({:tcp, socket, data}, %{client: socket} = state) do
     handle_data(data, socket)
-
-    # case data do
-    #   "set_name:aaa" ->
-    #     :timer.sleep(1000)
-    #     :gen_tcp.send(socket, "set_name:true")
-    #   _ ->
-    #     GenServer.cast(:chat_server, {:info, data})
-    # end
-
     {:noreply, state}
   end
 
@@ -56,7 +47,7 @@ defmodule CliChat.ServerHandler do
   defp handle_data(data, socket) do
     case String.split(data, ":", [:global]) do
       ["set_name", name] -> handle_name(name, socket)
-      _ -> handle_message(data)
+      [name|_rest] -> handle_message(name, data)
     end
   end
 
@@ -67,8 +58,8 @@ defmodule CliChat.ServerHandler do
     end
   end
 
-  defp handle_message(message) do
-    GenServer.cast(:chat_server, {:info, message})
+  defp handle_message(user, data) do
+    GenServer.cast(:chat_server, {:info, user, data})
   end
 
 end

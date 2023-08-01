@@ -65,6 +65,17 @@ defmodule CliChat.Server do
   end
 
   @impl true
+  def handle_cast({:info, user, info}, %{clients: clients} = state) do
+    IO.puts("------server------CAST---------------")
+    Enum.each(clients, fn(
+      {name, handler_pid}) when name != user ->
+        send(handler_pid, {:broadcast, info})
+      _ -> :ignore
+    end)
+    {:noreply, state}
+  end
+
+  @impl true
   def handle_cast({:info, info}, %{clients: clients} = state) do
     IO.puts("------server------CAST---------------")
     Enum.each(clients, fn({_name, handler_pid}) ->
@@ -74,9 +85,9 @@ defmodule CliChat.Server do
   end
 
   @impl true
-  def handle_info({:EXIT, pid, reason}, %{clients: clients} = state) do
+  def handle_info({:EXIT, pid, _reason}, %{clients: clients} = state) do
     IO.puts("------------HANDLER CRASHED----------#{inspect(pid)}")
-    clients = List.delete(clients, pid)
+    clients = List.keydelete(clients, pid, 1)
     IO.puts("---------clients updated---------#{inspect(clients)}")
     {:noreply, Map.put(state, :clients, clients)}
   end
