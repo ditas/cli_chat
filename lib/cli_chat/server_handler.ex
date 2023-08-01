@@ -14,7 +14,6 @@ defmodule CliChat.ServerHandler do
   def init(client_sock) do
     IO.puts("Init server handler")
     send(self(), :init)
-    # Process.send_after(self(), :ping, 5000)
     {:ok, %{client: client_sock}}
   end
 
@@ -27,30 +26,21 @@ defmodule CliChat.ServerHandler do
 
   @impl true
   def handle_info(:init, %{client: socket} = state) do
-    :gen_tcp.send(socket, "SERVER INFO: you have joined #{inspect(self())}")
     GenServer.cast(:chat_server, {:info, "New client joined"})
     {:noreply, state}
   end
 
-  # @impl true
-  # def handle_info(:ping, %{client: socket} = state) do
-  #   :gen_tcp.send(socket, "Ping from the server! #{inspect(self())}")
-  #   Process.send_after(self(), :ping, 5000)
-  #   # exit(:error)
-  #   {:noreply, state}
-  # end
-
   @impl true
   def handle_info({:tcp, socket, data}, %{client: socket} = state) do
-    # data = handle_data(data)
-    case data do
-      "set_name:aaa" ->
-        :timer.sleep(1000)
-        :gen_tcp.send(socket, "set_name:true")
-      _ ->
-        GenServer.cast(:chat_server, {:info, data})
-        :gen_tcp.send(socket, "SERVER ECHO: #{data} #{inspect(self())}")
-    end
+    handle_data(data, socket)
+
+    # case data do
+    #   "set_name:aaa" ->
+    #     :timer.sleep(1000)
+    #     :gen_tcp.send(socket, "set_name:true")
+    #   _ ->
+    #     GenServer.cast(:chat_server, {:info, data})
+    # end
 
     {:noreply, state}
   end
@@ -63,15 +53,22 @@ defmodule CliChat.ServerHandler do
 
   ## Internal functions
 
-  defp handle_data(data) do
-    case String.split(data, ":") do
-      ["set_name", name] -> check_name(name)
-      _ -> data
+  defp handle_data(data, socket) do
+    case String.split(data, ":", [:global]) do
+      ["set_name", name] -> handle_name(name, socket)
+      _ -> handle_message(data)
     end
   end
 
-  defp check_name(name) do
-    CliChat.Server.valid_name?(name)
+  defp handle_name(name, socket) do
+    case CliChat.Server.valid_name?(name, self()) do
+      false -> :gen_tcp.send(socket, "set_name:false")
+      true -> :gen_tcp.send(socket, "set_name:true")
+    end
+  end
+
+  defp handle_message(message) do
+    GenServer.cast(:chat_server, {:info, message})
   end
 
 end

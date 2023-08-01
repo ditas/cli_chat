@@ -43,7 +43,7 @@ defmodule CliChat.Acceptor do
   def handle_info(:post_init, %{listen_socket: listen_socket} = state) do
     {:ok, client_socket} = :gen_tcp.accept(listen_socket)
     IO.puts("ACCEPTOR: init 2 #{inspect(self())}")
-    CliChat.Server.handle(client_socket)
+    :ok = CliChat.Server.handle(client_socket)
     :ok = :gen_tcp.controlling_process(client_socket, :erlang.whereis(:chat_server))
 
     send(self(), :post_init)

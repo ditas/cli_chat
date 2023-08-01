@@ -16,6 +16,28 @@ defmodule CliChat.Client do
     loop(%{connected: false, config: {default_host, default_port}, name: nil})
   end
 
+  def recv(socket, client_pid) do
+    IO.puts("RECV process pid: #{inspect(self())} && CLIENT process pid: #{inspect(client_pid)}")
+    case :gen_tcp.recv(socket, 0) do
+      {:ok, "set_name:true"} ->
+        IO.puts("RECV Name is valid")
+        send(client_pid, {:set_name, true})
+        recv(socket, client_pid)
+      {:ok, "set_name:false"} ->
+        IO.puts("RECV Name is invalid")
+        send(client_pid, {:set_name, false})
+        recv(socket, client_pid)
+      {:ok, data} ->
+        IO.puts("-> #{data}")
+        recv(socket, client_pid)
+      {:error, reason} ->
+        IO.puts("Error receiving data from server: #{reason}")
+        :gen_tcp.close(socket)
+    end
+  end
+
+  ## Internal functions
+
   defp loop(%{connected: true, socket: _socket, name: nil} = state) do
     IO.puts("CLIENT pid: #{inspect(self())}. Set your name with command 'set_name': ")
     case IO.gets("") |> String.trim() do
@@ -62,7 +84,7 @@ defmodule CliChat.Client do
     loop(state)
   end
 
-  defp handle_command("set_name", [name], %{connected: true, socket: socket, name: nil} = state) do
+  defp handle_command("set_name", [name], %{connected: true, socket: socket, name: _} = state) do
     IO.puts("Checking name: #{name}")
     :ok = :gen_tcp.send(socket, "set_name:" <> name) ## TODO: should I allow reconnect? or let it crash?
 
@@ -90,7 +112,7 @@ defmodule CliChat.Client do
   end
 
   defp connect(host, port, state) do
-    {:ok, socket} = :gen_tcp.connect(String.to_charlist(host), String.to_integer(port), [:binary, {:active, false}])
+    {:ok, socket} = :gen_tcp.connect(cast_to_charlist(host), cast_to_integer(port), [:binary, {:active, false}])
 
     shell_pid = self()
     spawn(__MODULE__, :recv, [socket, shell_pid])
@@ -100,29 +122,25 @@ defmodule CliChat.Client do
     |> Map.put(:socket, socket)
   end
 
-  def recv(socket, client_pid) do
-    IO.puts("RECV process pid: #{inspect(self())} && CLIENT process pid: #{inspect(client_pid)}")
-    case :gen_tcp.recv(socket, 0) do
-      {:ok, "set_name:true"} ->
-        IO.puts("RECV Name is valid")
-        send(client_pid, {:set_name, true})
-        recv(socket, client_pid)
-      {:ok, "set_name:false"} ->
-        IO.puts("RECV Name is invalid")
-        send(client_pid, {:set_name, false})
-        recv(socket, client_pid)
-      {:ok, data} ->
-        IO.puts("-> #{data}")
-        recv(socket, client_pid)
-      {:error, reason} ->
-        IO.puts("Error receiving data from server: #{reason}")
-        :gen_tcp.close(socket)
-    end
-  end
-
   defp exit_chat(%{connected: true, socket: socket}) do
     CliChat.Acceptor.close()
     :ok = :gen_tcp.close(socket)
+  end
+
+  defp cast_to_charlist(value) when is_bitstring(value) do
+    String.to_charlist(value)
+  end
+
+  defp cast_to_charlist(value) do
+    value
+  end
+
+  defp cast_to_integer(value) when is_number(value) do
+    value
+  end
+
+  defp cast_to_integer(value) when is_binary(value) or is_bitstring(value) do
+    String.to_integer(value)
   end
 
 end

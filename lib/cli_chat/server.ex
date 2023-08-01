@@ -1,4 +1,5 @@
 defmodule CliChat.Server do
+  require Logger
   use GenServer
 
   def child_spec(opts) do
@@ -21,8 +22,11 @@ defmodule CliChat.Server do
     GenServer.cast(:chat_server, {:handle, client_socket})
   end
 
-  def valid_name?(name) do
-    GenServer.call(:chat_server, {:check_name, name})
+  def valid_name?(name, handler_pid) do
+    case GenServer.call(:chat_server, {:check_name, name, handler_pid}) do
+      {:ok, _} -> true
+      {:error, _} -> false
+    end
   end
 
   ## GenServer callbacks
@@ -35,17 +39,36 @@ defmodule CliChat.Server do
   end
 
   @impl true
+  def handle_call({:check_name, name, pid}, _from, %{clients: clients} = state) do
+    case List.keymember?(clients, name, 0) do
+      true -> {:reply, {:error, :name_exists}, state}
+      false ->
+        {res, state} = case List.keytake(clients, pid, 1) do
+          {{:undefined, pid}, clients} ->
+            {{:ok, :name_applied}, Map.put(state, :clients, [{name, pid}|clients])}
+          {{old_name, pid}, clients} ->
+            GenServer.cast(:chat_server, {:info, "Client " <> old_name <> " updates name to " <> name})
+            {{:ok, :name_updated}, Map.put(state, :clients, [{name, pid}|clients])}
+          nil ->
+            Logger.warning("client with #{inspect(name)} and #{inspect(pid)} not found")
+            {{:error, :client_not_found}, state}
+        end
+        {:reply, res, state}
+    end
+  end
+
+  @impl true
   def handle_cast({:handle, socket}, %{clients: clients} = state) do
     {:ok, pid} = CliChat.ServerHandler.start_link(socket)
     :ok = :gen_tcp.controlling_process(socket, pid)
-    {:noreply, Map.put(state, :clients, [pid|clients])}
+    {:noreply, Map.put(state, :clients, [{:undefined, pid}|clients])}
   end
 
   @impl true
   def handle_cast({:info, info}, %{clients: clients} = state) do
     IO.puts("------server------CAST---------------")
-    Enum.each(clients, fn(handler) ->
-      send(handler, {:broadcast, info})
+    Enum.each(clients, fn({_name, handler_pid}) ->
+      send(handler_pid, {:broadcast, info})
     end)
     {:noreply, state}
   end
