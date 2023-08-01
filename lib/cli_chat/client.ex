@@ -64,7 +64,7 @@ defmodule CliChat.Client do
 
   defp handle_command("set_name", [name], %{connected: true, socket: socket, name: nil} = state) do
     IO.puts("Checking name: #{name}")
-    :ok = :gen_tcp.send(socket, "set_name:" <> name <> "") ## TODO: should I allow reconnect? or let it crash?
+    :ok = :gen_tcp.send(socket, "set_name:" <> name) ## TODO: should I allow reconnect? or let it crash?
 
     receive do
       {:set_name, true} ->
@@ -112,7 +112,7 @@ defmodule CliChat.Client do
         send(client_pid, {:set_name, false})
         recv(socket, client_pid)
       {:ok, data} ->
-        IO.puts("Received from server: #{data}")
+        IO.puts("-> #{data}")
         recv(socket, client_pid)
       {:error, reason} ->
         IO.puts("Error receiving data from server: #{reason}")
