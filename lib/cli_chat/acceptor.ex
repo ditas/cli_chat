@@ -1,4 +1,10 @@
 defmodule CliChat.Acceptor do
+  @moduledoc """
+  Process to maintain open socket for incoming TCP connections.
+  Accepts incoming connections, sends socket to existing controlling process.
+  Returns to listening for incoming connections.
+  """
+  require Logger
   use GenServer
 
   def child_spec(opts) do
@@ -13,10 +19,15 @@ defmodule CliChat.Acceptor do
 
   ## API
 
+  @spec start_link(list()) :: :ignore | {:error, any()} | {:ok, pid()}
   def start_link([host, port]) do
     GenServer.start_link(__MODULE__, [host, port], name: :chat_acceptor)
   end
 
+  @doc """
+  Closes socket, exits process.
+  """
+  @spec close() :: :ok
   def close() do
     IO.puts("Closing...")
     GenServer.cast(:chat_acceptor, :close)
@@ -26,7 +37,6 @@ defmodule CliChat.Acceptor do
 
   @impl true
   def init([_host, port]) do
-    IO.puts("ACCEPTOR: init")
     {:ok, listen_socket} = :gen_tcp.listen(port, [:binary, {:active, true}])
 
     send(self(), :post_init)
@@ -42,12 +52,10 @@ defmodule CliChat.Acceptor do
   @impl true
   def handle_info(:post_init, %{listen_socket: listen_socket} = state) do
     {:ok, client_socket} = :gen_tcp.accept(listen_socket)
-    IO.puts("ACCEPTOR: init 2 #{inspect(self())}")
     :ok = CliChat.Server.handle(client_socket)
     :ok = :gen_tcp.controlling_process(client_socket, :erlang.whereis(:chat_server))
 
     send(self(), :post_init)
     {:noreply, state}
   end
-
 end

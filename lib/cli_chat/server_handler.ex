@@ -1,10 +1,17 @@
 defmodule CliChat.ServerHandler do
+  @moduledoc """
+  Process to maintain client connection.
+  Receives incoming TCP data.
+  Sends broadcasting info to Server.
+  """
+  require Logger
   use GenServer
 
   ## API
 
+  @spec start_link(:inet.socket()) :: :ignore | {:error, any()} | {:ok, pid()}
   def start_link(client_sock) do
-    IO.puts("Start server handler")
+    Logger.debug("starting handler...")
     GenServer.start_link(__MODULE__, client_sock, [])
   end
 
@@ -12,15 +19,13 @@ defmodule CliChat.ServerHandler do
 
   @impl true
   def init(client_sock) do
-    IO.puts("Init server handler")
     send(self(), :init)
     {:ok, %{client: client_sock}}
   end
 
   @impl true
   def handle_info({:broadcast, info}, %{client: socket} = state) do
-    IO.puts("------handler------INFO---------------")
-    :gen_tcp.send(socket, "SERVER BROADCAST: #{info} #{inspect(self())}")
+    :gen_tcp.send(socket, "#{info}")
     {:noreply, state}
   end
 
@@ -32,25 +37,30 @@ defmodule CliChat.ServerHandler do
 
   @impl true
   def handle_info({:tcp, socket, data}, %{client: socket} = state) do
-    handle_data(data, socket)
+    :ok = handle_data(data, socket)
     {:noreply, state}
   end
 
   @impl true
   def handle_info({:tcp_closed, socket}, %{client: socket} = state) do
-    IO.puts("SERVER: Client closed the connection.")
+    IO.puts("Client closed the connection")
     {:stop, :normal, Map.put(state, :client, nil)}
   end
 
   ## Internal functions
 
+  ## Checks if there's set_name command in incoming data.
+  @spec handle_data(binary(), :inet.socket()) :: :ok | {:error, atom() | {:timeout, binary()}}
   defp handle_data(data, socket) do
-    case String.split(data, ":", [:global]) do
+    case String.split(data, ":") do
       ["set_name", name] -> handle_name(name, socket)
-      [name|_rest] -> handle_message(name, data)
+      [name | _rest] -> handle_message(name, data)
     end
   end
 
+  ## Validates name.
+  ## Notifies client with set_name result.
+  @spec handle_name(binary(), :inet.socket()) :: :ok | {:error, atom() | {:timeout, binary()}}
   defp handle_name(name, socket) do
     case CliChat.Server.valid_name?(name, self()) do
       false -> :gen_tcp.send(socket, "set_name:false")
@@ -58,8 +68,9 @@ defmodule CliChat.ServerHandler do
     end
   end
 
+  ## Sends messages to Server to broadcast them to all connected clients.
+  @spec handle_message(binary(), binary()) :: :ok
   defp handle_message(user, data) do
     GenServer.cast(:chat_server, {:info, user, data})
   end
-
 end

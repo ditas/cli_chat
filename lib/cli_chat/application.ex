@@ -14,6 +14,7 @@ defmodule CliChat.Application do
   def start(_type, _args) do
     default_host = Application.get_env(:cli_chat, :host, 'localhost')
     default_port = Application.get_env(:cli_chat, :port, 4000)
+
     children = [
       # Starts a worker by calling: CliChat.Worker.start_link(arg)
       {CliChat.Acceptor, [default_host, default_port]},
